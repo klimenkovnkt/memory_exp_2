@@ -6,7 +6,6 @@ function getAdaptiveSizes() {
     const h = window.innerHeight;
     const minDim = Math.min(w, h);
 
-    // УВЕЛИЧЕННЫЙ радиус для всех set_size (было 0.40/420, стало 0.45/500)
     const circle_radius = Math.min(minDim * 0.45, 500);
     const ring_px = Math.min(minDim * 0.16, 200);
     const stim_px = Math.round(ring_px * 0.75);
@@ -43,9 +42,9 @@ const CONFIG = {
     new_stims_count: 8,
     newest_stims_count: 8,
 
-    correct_per_item: 8,
+    test_blocks_count: 1,
 
-    set_sizes: [4, 8, 12],
+    set_size: 8,
 
     paths: {
         objects: "./NOUN-2-600DPI/",
@@ -106,44 +105,28 @@ function getKeyName(code) {
 /* =========================
 POSITION GENERATION (СТРОГО СИММЕТРИЧНО ПО КВАДРАНТАМ)
 ========================= */
-/* =========================
-POSITION GENERATION (СТРОГО СИММЕТРИЧНО ПО КВАДРАНТАМ)
-/* =========================
-POSITION GENERATION (ОТ 3 ЧАСОВ, ПРОТИВ ЧАСОВОЙ СТРЕЛКИ)
-========================= */
 function generateSearchPositions({ nItems }) {
     const cx = CONFIG.arena_size / 2;
     const cy = CONFIG.arena_size / 2;
     const radius = CONFIG.circle_radius;
-    
-    // Начальный угол: π/nItems (45° для 4, 22.5° для 8, 15° для 12)
-    const startAngle = Math.PI / nItems;
-    
-    // Шаг между стимулами: 2π/nItems (90° для 4, 45° для 8, 30° для 12)
     const angleStep = (Math.PI * 2) / nItems;
+    const startAngle = Math.PI / nItems;
 
     let positions = [];
     for (let i = 0; i < nItems; i++) {
-        // Угол отсчитывается от 3 часов (0°) против часовой стрелки
-        const angle = startAngle + (angleStep * i);
+        const angle = -Math.PI / 2 + startAngle + (angleStep * i);
         const x = cx + Math.cos(angle) * radius;
         const y = cy + Math.sin(angle) * radius;
         positions.push({ x, y });
     }
-
     return positions;
 }
 
 /* =========================
 HTML BUILDERS
 ========================= */
-function blankHTML() {
-    return `<div class="screen-wrap"></div>`;
-}
-
-function fixationHTML() {
-    return `<div class="screen-wrap"><div class="fixation">+</div></div>`;
-}
+function blankHTML() { return `<div class="screen-wrap"></div>`; }
+function fixationHTML() { return `<div class="screen-wrap"><div class="fixation">+</div></div>`; }
 
 function cueHTML(targetPath, showLabel = true) {
     if (showLabel) {
@@ -160,25 +143,6 @@ function cueHTML(targetPath, showLabel = true) {
     }
 }
 
-function singleObjectWithRingHTML(targetPath, gapSide, showLabel = true) {
-    const inner = `
-        <div class="stim-container" style="position:relative; width:${CONFIG.ring_px}px; height:${CONFIG.ring_px}px; transform:none;">
-            <img class="stim-obj" src="${targetPath}" style="width:${CONFIG.stim_px}px; height:${CONFIG.stim_px}px;">
-            <img class="stim-ring" src="${getRingPath(gapSide)}" style="width:100%; height:100%;">
-        </div>
-    `;
-    if (showLabel) {
-        return `<div class="screen-wrap">
-                    <div class="cue-wrap">
-                        <div class="cue-label">Где разрыв кольца?</div>
-                        ${inner}
-                    </div>
-                </div>`;
-    } else {
-        return `<div class="screen-wrap">${inner}</div>`;
-    }
-}
-
 function searchArrayHTML({ targetId, distractorIds, gapSideTarget, setSize }) {
     const ids = shuffle([targetId, ...distractorIds]);
     const positions = generateSearchPositions({ nItems: setSize });
@@ -189,13 +153,10 @@ function searchArrayHTML({ targetId, distractorIds, gapSideTarget, setSize }) {
         const pos = positions[idx];
         const isTarget = idx === targetIndex;
         const ringSide = isTarget ? gapSideTarget : sampleOne(["left", "right"]);
-
-        html += `
-          <div class="stim-container" style="left:${pos.x}px; top:${pos.y}px; width:${CONFIG.ring_px}px; height:${CONFIG.ring_px}px; transform: translate(-50%, -50%);">
+        html += `<div class="stim-container" style="left:${pos.x}px; top:${pos.y}px; width:${CONFIG.ring_px}px; height:${CONFIG.ring_px}px; transform: translate(-50%, -50%);">
             <img class="stim-obj" src="${objPath(id)}" style="width:${CONFIG.stim_px}px; height:${CONFIG.stim_px}px;">
             <img class="stim-ring" src="${getRingPath(ringSide)}" style="width:100%; height:100%;">
-          </div>
-        `;
+        </div>`;
     });
     html += `</div></div>`;
     return html;
@@ -210,7 +171,7 @@ function makeBlankTrial(duration, extraData = {}) {
         stimulus: blankHTML(),
         choices: "NO_KEYS",
         trial_duration: duration,
-        data: { screen: "blank", participant_id: window.PARTICIPANT_ID, seed: window.SEED, part: 1, ...extraData },
+        data: { screen: "blank", participant_id: window.PARTICIPANT_ID, seed: window.SEED, part: 2, is_second_part: true, ...extraData },
     };
 }
 
@@ -220,7 +181,7 @@ function makeFixationTrial(extraData = {}) {
         stimulus: fixationHTML(),
         choices: "NO_KEYS",
         trial_duration: CONFIG.fixation_ms,
-        data: { screen: "fixation", participant_id: window.PARTICIPANT_ID, seed: window.SEED, part: 1, ...extraData },
+        data: { screen: "fixation", participant_id: window.PARTICIPANT_ID, seed: window.SEED, part: 2, is_second_part: true, ...extraData },
     };
 }
 
@@ -230,17 +191,7 @@ function makeCueTrial(targetId, showLabel, extraData = {}) {
         stimulus: cueHTML(objPath(targetId), showLabel),
         choices: "NO_KEYS",
         trial_duration: CONFIG.cue_ms,
-        data: { screen: "cue", target_id: targetId, participant_id: window.PARTICIPANT_ID, seed: window.SEED, part: 1, ...extraData },
-    };
-}
-
-function makeStudyTrial(targetId, extraData = {}) {
-    return {
-        type: jsPsychHtmlKeyboardResponse,
-        stimulus: `<div class="screen-wrap"><img class="cue-img" src="${objPath(targetId)}" style="width:${CONFIG.stim_px}px; height:${CONFIG.stim_px}px;"></div>`,
-        choices: "NO_KEYS",
-        trial_duration: CONFIG.study_ms,
-        data: { screen: "study", target_id: targetId, participant_id: window.PARTICIPANT_ID, seed: window.SEED, part: 1, ...extraData },
+        data: { screen: "cue", target_id: targetId, participant_id: window.PARTICIPANT_ID, seed: window.SEED, part: 2, is_second_part: true, ...extraData },
     };
 }
 
@@ -254,14 +205,13 @@ function makeFeedbackTrial() {
         },
         choices: "NO_KEYS",
         trial_duration: CONFIG.feedback_ms,
-        data: { screen: "feedback" },
+        data: { screen: "feedback", is_second_part: true },
     };
 }
 
-function makeSearchTrial({ targetId, distractorPool, setSize, block, condition, gapSide }) {
+function makeSearchTrial({ targetId, distractorPool, setSize, block, condition, gapSide, testBlockNum }) {
     const distractorIds = pickDistractors(targetId, distractorPool, setSize - 1);
     const correctKey = getCorrectKey(gapSide);
-
     return {
         type: jsPsychHtmlKeyboardResponse,
         stimulus: searchArrayHTML({ targetId, distractorIds, gapSideTarget: gapSide, setSize }),
@@ -272,50 +222,22 @@ function makeSearchTrial({ targetId, distractorPool, setSize, block, condition, 
             trial_kind: "search", block, condition,
             target_id: targetId, distractor_ids: distractorIds.join("|"),
             set_size: setSize, correct_gap: gapSide, correct_key: correctKey,
-            participant_id: window.PARTICIPANT_ID, seed: window.SEED, part: 1,
+            participant_id: window.PARTICIPANT_ID, seed: window.SEED, part: 2,
+            test_block_number: testBlockNum !== undefined ? testBlockNum : null,
+            is_second_part: true,
         },
         on_finish: function (data) {
-            if (data.response === null) {
-                data.correct = 0;
-                data.timeout = 1;
-            } else {
-                data.correct = (data.response.toLowerCase() === correctKey.toLowerCase()) ? 1 : 0;
-                data.timeout = 0;
-            }
-        },
-    };
-}
-
-function makeFamiliarTrial({ targetId, block, condition, gapSide, showLabel }) {
-    const correctKey = getCorrectKey(gapSide);
-
-    return {
-        type: jsPsychHtmlKeyboardResponse,
-        stimulus: singleObjectWithRingHTML(objPath(targetId), gapSide, showLabel),
-        choices: [CONFIG.left_key, CONFIG.right_key],
-        trial_duration: CONFIG.familiar_timeout_ms,
-        response_ends_trial: true,
-        data: {
-            trial_kind: "familiar_single", block, condition,
-            target_id: targetId, correct_gap: gapSide, correct_key: correctKey,
-            participant_id: window.PARTICIPANT_ID, seed: window.SEED, part: 1,
-        },
-        on_finish: function (data) {
-            if (data.response === null) {
-                data.correct = 0;
-                data.timeout = 1;
-            } else {
-                data.correct = (data.response.toLowerCase() === correctKey.toLowerCase()) ? 1 : 0;
-                data.timeout = 0;
-            }
+            if (data.response === null) { data.correct = 0; data.timeout = 1; }
+            else { data.correct = (data.response.toLowerCase() === correctKey.toLowerCase()) ? 1 : 0; data.timeout = 0; }
         },
     };
 }
 
 /* =========================
-ГЕНЕРАЦИЯ УСЛОВИЙ ДЛЯ БЛОКА 1
+ГЕНЕРАЦИЯ УСЛОВИЙ ДЛЯ ТЕСТА
+8 условий на стимул: 4 слева (2 gap left + 2 gap right) + 4 справа (2 gap left + 2 gap right)
 ========================= */
-function generateBlock1Conditions() {
+function generateTestConditions() {
     const conditions = [];
     for (let i = 0; i < 2; i++) {
         conditions.push({ targetSide: "left", gapSide: "left" });
@@ -329,38 +251,20 @@ function generateBlock1Conditions() {
 }
 
 /* =========================
-ГЕНЕРАЦИЯ УСЛОВИЙ ДЛЯ БЛОКА 2
-========================= */
-function generateBlock2Conditions() {
-    const conditions = [];
-    for (let i = 0; i < 4; i++) {
-        conditions.push({ gapSide: "left" });
-        conditions.push({ gapSide: "right" });
-    }
-    return shuffle(conditions);
-}
-
-/* =========================
-ВВОД ID — ЗДЕСЬ УСТАНАВЛИВАЕМ SEED, ДЕЛАЕМ SHUFFLE И ДОБАВЛЯЕМ ТРИАЛЫ
+ВВОД ID
 ========================= */
 const idTrial = {
     type: jsPsychSurveyHtmlForm,
-    html: `
-        <div style="display:flex; flex-direction:column; align-items:center; gap:20px; padding:40px;">
+    html: `<div style="display:flex; flex-direction:column; align-items:center; gap:20px; padding:40px;">
             <h2>Введите ID, который вам сообщил экспериментатор</h2>
             <input type="text" name="participant_id" required placeholder="id_1"
                    style="font-size:24px; padding:10px 20px; border:2px solid #333; border-radius:8px; text-align:center; width:300px;">
-        </div>
-    `,
+        </div>`,
     button_label: "Начать",
     on_finish: function (data) {
         const rawId = data.response.participant_id;
         const match = rawId.match(/\d+/);
-        if (!match) {
-            alert("ID должен содержать число! Например: id_1");
-            location.reload();
-            return;
-        }
+        if (!match) { alert("ID должен содержать число! Например: id_1"); location.reload(); return; }
         const seed = parseInt(match[0]);
 
         jsPsych.randomization.setSeed(seed);
@@ -368,12 +272,13 @@ const idTrial = {
         window.PARTICIPANT_ID = rawId;
         window.SEED = seed;
         window.trainingSearchCorrect = 0;
-        window.trainingFamiliarCorrect = 0;
 
         jsPsych.data.addProperties({
-            subject_id: rawId
+            subject_id: rawId,
+            is_second_part: true,
         });
 
+        // Разбиение стимулов такое же, как в первой части
         const shuffledIds = jsPsych.randomization.shuffle([...ALL_OBJECT_IDS]);
         let idx = 0;
         const STIM_TEMPLATES = shuffledIds.slice(idx, idx += CONFIG.stim_templates_count);
@@ -389,11 +294,12 @@ const idTrial = {
         console.log("TRAINING_TARGET:", TRAINING_TARGET);
         console.log("STIM_TEMPLATES:", STIM_TEMPLATES);
         console.log("WITHOUT_SEARCH:", WITHOUT_SEARCH);
+        console.log("NEWEST_STIMS:", NEWEST_STIMS);
 
         const PRELOAD_IMAGES = [
             CONFIG.paths.ring_left, CONFIG.paths.ring_right,
             ...STIM_TEMPLATES.map(objPath), ...WITHOUT_SEARCH.map(objPath),
-            ...NEW_STIMS.map(objPath), ...NEWEST_STIMS.map(objPath),
+            ...NEWEST_STIMS.map(objPath),
             ...DISTRACTORS_WITHOUT_TRAINING.map(objPath),
             objPath(TRAINING_TARGET)
         ];
@@ -413,7 +319,7 @@ const idTrial = {
                     </div></div>`,
                     choices: "ALL_KEYS"
                 },
-                // Тренировка поиска
+                // --- ТРЕНИРОВКА ПОИСКА ---
                 {
                     type: jsPsychHtmlKeyboardResponse,
                     stimulus: `<div class="screen-wrap"><div class="instr">
@@ -446,25 +352,18 @@ const idTrial = {
                                 block: "training_search",
                                 target_id: TRAINING_TARGET,
                                 correct_gap: function() { return window.currentTrainingGapSide; },
-                                participant_id: window.PARTICIPANT_ID, seed: window.SEED, part: 1,
+                                participant_id: window.PARTICIPANT_ID, seed: window.SEED, part: 2,
+                                is_second_part: true,
                             },
                             on_finish: function(data) {
                                 const correctKey = getCorrectKey(window.currentTrainingGapSide);
-                                if (data.response === null) {
-                                    data.correct = 0;
-                                } else {
-                                    data.correct = (data.response.toLowerCase() === correctKey.toLowerCase()) ? 1 : 0;
-                                }
-                                if (data.correct) {
-                                    window.trainingSearchCorrect++;
-                                }
+                                data.correct = (data.response && data.response.toLowerCase() === correctKey.toLowerCase()) ? 1 : 0;
+                                if (data.correct) window.trainingSearchCorrect++;
                             },
                         },
                         makeFeedbackTrial(),
                     ],
-                    loop_function: function() {
-                        return window.trainingSearchCorrect < 5;
-                    }
+                    loop_function: function() { return window.trainingSearchCorrect < 5; }
                 },
                 {
                     type: jsPsychHtmlKeyboardResponse,
@@ -476,218 +375,18 @@ const idTrial = {
                     </div></div>`,
                     choices: "ALL_KEYS"
                 },
-                {
-                    type: jsPsychHtmlKeyboardResponse,
-                    stimulus: `<div class="screen-wrap"><div class="instr">
-                        <h2>Блок 1: Поиск</h2>
-                        <p>Запоминайте предметы и ищите их среди остальных объектов.</p>
-                        <div class="small-note">Нажмите любую клавишу.</div>
-                    </div></div>`,
-                    choices: "ALL_KEYS"
-                },
             ]
-        });
-
-        // === БЛОК 1: stim_templates_search ===
-        STIM_TEMPLATES.forEach((targetId) => {
-            const conditions = generateBlock1Conditions();
-            let correctCount = 0;
-            let condIndex = 0;
-
-            jsPsych.addNodeToEndOfTimeline({
-                timeline: [
-                    {
-                        timeline: [
-                            makeBlankTrial(CONFIG.blank_ms, { block: "stim_templates_search" }),
-                            makeCueTrial(targetId, false, { block: "stim_templates_search" }),
-                            makeFixationTrial({ block: "stim_templates_search" }),
-                            makeBlankTrial(CONFIG.blank_after_fixation_ms, { block: "stim_templates_search" }),
-                            {
-                                type: jsPsychHtmlKeyboardResponse,
-                                stimulus: function() {
-                                    const cond = conditions[condIndex % conditions.length];
-                                    window.currentBlock1Cond = cond;
-                                    const distractorIds = pickDistractors(targetId, DISTRACTORS_WITHOUT_TRAINING, 7);
-                                    return searchArrayHTML({ 
-                                        targetId, 
-                                        distractorIds, 
-                                        gapSideTarget: cond.gapSide, 
-                                        setSize: 8
-                                    });
-                                },
-                                choices: [CONFIG.left_key, CONFIG.right_key],
-                                trial_duration: CONFIG.search_timeout_ms,
-                                response_ends_trial: true,
-                                data: {
-                                    trial_kind: "search",
-                                    block: "stim_templates_search",
-                                    condition: "stim_templates",
-                                    target_id: targetId,
-                                    correct_gap: function() { return window.currentBlock1Cond.gapSide; },
-                                    participant_id: window.PARTICIPANT_ID, seed: window.SEED, part: 1,
-                                },
-                                on_finish: function(data) {
-                                    const cond = window.currentBlock1Cond;
-                                    const correctKey = getCorrectKey(cond.gapSide);
-                                    if (data.response === null) {
-                                        data.correct = 0;
-                                    } else {
-                                        data.correct = (data.response.toLowerCase() === correctKey.toLowerCase()) ? 1 : 0;
-                                    }
-                                    if (data.correct) {
-                                        correctCount++;
-                                        condIndex++;
-                                    }
-                                },
-                            },
-                        ],
-                        loop_function: function() {
-                            return correctCount < CONFIG.correct_per_item;
-                        }
-                    }
-                ]
-            });
-        });
-
-        // === ТРЕНИРОВКА WITHOUT_SEARCH ===
-        jsPsych.addNodeToEndOfTimeline({
-            timeline: [
-                {
-                    type: jsPsychHtmlKeyboardResponse,
-                    stimulus: `<div class="screen-wrap"><div class="instr">
-                        <h2>Тренировка: Знакомство</h2>
-                        <p>Сначала посмотрите на предмет, затем вокруг него появится кольцо. Укажите, где разрыв.</p>
-                        <p>Тренировка продлится до 5 правильных ответов.</p>
-                        <div class="small-note">Нажмите любую клавишу.</div>
-                    </div></div>`,
-                    choices: "ALL_KEYS"
-                },
-                {
-                    timeline: [
-                        makeBlankTrial(CONFIG.blank_ms, { block: "training_familiar" }),
-                        makeStudyTrial(TRAINING_TARGET, { block: "training_familiar" }),
-                        makeFixationTrial({ block: "training_familiar" }),
-                        makeBlankTrial(CONFIG.blank_after_fixation_ms, { block: "training_familiar" }),
-                        {
-                            type: jsPsychHtmlKeyboardResponse,
-                            stimulus: function() {
-                                const gapSide = sampleOne(["left", "right"]);
-                                window.currentTrainingFamiliarGapSide = gapSide;
-                                return singleObjectWithRingHTML(objPath(TRAINING_TARGET), gapSide, true);
-                            },
-                            choices: [CONFIG.left_key, CONFIG.right_key],
-                            trial_duration: CONFIG.familiar_timeout_ms,
-                            response_ends_trial: true,
-                            data: {
-                                trial_kind: "training_familiar",
-                                block: "training_familiar",
-                                target_id: TRAINING_TARGET,
-                                correct_gap: function() { return window.currentTrainingFamiliarGapSide; },
-                                participant_id: window.PARTICIPANT_ID, seed: window.SEED, part: 1,
-                            },
-                            on_finish: function(data) {
-                                const correctKey = getCorrectKey(window.currentTrainingFamiliarGapSide);
-                                if (data.response === null) {
-                                    data.correct = 0;
-                                } else {
-                                    data.correct = (data.response.toLowerCase() === correctKey.toLowerCase()) ? 1 : 0;
-                                }
-                                if (data.correct) {
-                                    window.trainingFamiliarCorrect++;
-                                }
-                            },
-                        },
-                        makeFeedbackTrial(),
-                    ],
-                    loop_function: function() {
-                        return window.trainingFamiliarCorrect < 5;
-                    }
-                },
-                {
-                    type: jsPsychHtmlKeyboardResponse,
-                    stimulus: `<div class="screen-wrap"><div class="instr">
-                        <h2>Тренировка завершена!</h2>
-                        <p>Теперь начинается основное задание. Обратной связи больше не будет.</p>
-                        <p>Готовы приступить к основному блоку?</p>
-                        <div class="small-note">Нажмите любую клавишу, чтобы продолжить.</div>
-                    </div></div>`,
-                    choices: "ALL_KEYS"
-                },
-                {
-                    type: jsPsychHtmlKeyboardResponse,
-                    stimulus: `<div class="screen-wrap"><div class="instr">
-                        <h2>Блок 2: Знакомство</h2>
-                        <p>Сначала посмотрите на предмет, затем вокруг него появится кольцо. Укажите, где разрыв. Старайтесь не отводить взгляд от предмета!</p>
-                        <div class="small-note">Нажмите любую клавишу.</div>
-                    </div></div>`,
-                    choices: "ALL_KEYS"
-                },
-            ]
-        });
-
-        // === БЛОК 2: without_search ===
-        WITHOUT_SEARCH.forEach((targetId) => {
-            const conditions = generateBlock2Conditions();
-            let correctCount = 0;
-            let condIndex = 0;
-
-            jsPsych.addNodeToEndOfTimeline({
-                timeline: [
-                    {
-                        timeline: [
-                            makeBlankTrial(CONFIG.blank_ms, { block: "without_search" }),
-                            makeStudyTrial(targetId, { block: "without_search" }),
-                            makeFixationTrial({ block: "without_search" }),
-                            makeBlankTrial(CONFIG.blank_after_fixation_ms, { block: "without_search" }),
-                            {
-                                type: jsPsychHtmlKeyboardResponse,
-                                stimulus: function() {
-                                    const cond = conditions[condIndex % conditions.length];
-                                    window.currentBlock2Cond = cond;
-                                    return singleObjectWithRingHTML(objPath(targetId), cond.gapSide, false);
-                                },
-                                choices: [CONFIG.left_key, CONFIG.right_key],
-                                trial_duration: CONFIG.familiar_timeout_ms,
-                                response_ends_trial: true,
-                                data: {
-                                    trial_kind: "familiar_single",
-                                    block: "without_search",
-                                    condition: "without_search",
-                                    target_id: targetId,
-                                    correct_gap: function() { return window.currentBlock2Cond.gapSide; },
-                                    participant_id: window.PARTICIPANT_ID, seed: window.SEED, part: 1,
-                                },
-                                on_finish: function(data) {
-                                    const cond = window.currentBlock2Cond;
-                                    const correctKey = getCorrectKey(cond.gapSide);
-                                    if (data.response === null) {
-                                        data.correct = 0;
-                                    } else {
-                                        data.correct = (data.response.toLowerCase() === correctKey.toLowerCase()) ? 1 : 0;
-                                    }
-                                    if (data.correct) {
-                                        correctCount++;
-                                        condIndex++;
-                                    }
-                                },
-                            },
-                        ],
-                        loop_function: function() {
-                            return correctCount < CONFIG.correct_per_item;
-                        }
-                    }
-                ]
-            });
         });
 
         // === ФАЗА ПОИСКА (ТЕСТ) ===
+        // Целевые стимулы: STIM_TEMPLATES + WITHOUT_SEARCH + NEWEST_STIMS
         jsPsych.addNodeToEndOfTimeline({
             timeline: [
                 {
                     type: jsPsychHtmlKeyboardResponse,
                     stimulus: `<div class="screen-wrap"><div class="instr">
                         <h2>Фаза поиска (Тест)</h2>
-                        <p>Теперь вам вновь необходимо искать предметы. Нужно будет найти определённый предмет среди других. После нахождения целевого объекта вам нужно ответить про разрыв кольца вокруг этого предмета.</p>
+                        <p>Теперь вам необходимо искать предметы. Нужно будет найти определённый предмет среди других. После нахождения целевого объекта вам нужно ответить про разрыв кольца вокруг этого предмета.</p>
                         <p>Нажимайте <strong>${getKeyName(CONFIG.left_key)}</strong>, если разрыв слева, и <strong>${getKeyName(CONFIG.right_key)}</strong>, если разрыв справа.</p>
                         <div class="small-note">Нажмите любую клавишу, чтобы продолжить.</div>
                     </div></div>`,
@@ -696,48 +395,81 @@ const idTrial = {
             ]
         });
 
-        const testPool = [...STIM_TEMPLATES, ...WITHOUT_SEARCH, ...NEW_STIMS];
-        const shuffledTestPool = shuffle(testPool);
+        const testPool = [...STIM_TEMPLATES, ...WITHOUT_SEARCH, ...NEWEST_STIMS];
 
-        shuffledTestPool.forEach((id) => {
-            let cond = "new_stims";
-            if (STIM_TEMPLATES.includes(id)) cond = "stim_templates";
-            else if (WITHOUT_SEARCH.includes(id)) cond = "without_search";
+        // ДЛЯ КАЖДОГО БЛОКА — НОВОЕ ПЕРЕМЕШИВАНИЕ!
+        for (let blockNum = 1; blockNum <= CONFIG.test_blocks_count; blockNum++) {
+            const shuffledTestPool = shuffle(testPool);
 
-            const setSize = sampleOne(CONFIG.set_sizes);
-            const gapSide = sampleOne(["left", "right"]);
+            shuffledTestPool.forEach((id) => {
+                let cond = "newest_stims";
+                if (STIM_TEMPLATES.includes(id)) cond = "stim_templates";
+                else if (WITHOUT_SEARCH.includes(id)) cond = "without_search";
 
-            jsPsych.addNodeToEndOfTimeline({
-                timeline: [
-                    makeBlankTrial(CONFIG.blank_ms, { block: "test_search" }),
-                    makeCueTrial(id, false, { block: "test_search", condition: cond }),
-                    makeFixationTrial({ block: "test_search" }),
-                    makeBlankTrial(CONFIG.blank_after_fixation_ms, { block: "test_search" }),
-                    makeSearchTrial({
-                        targetId: id,
-                        distractorPool: [...DISTRACTORS_WITHOUT_TRAINING, ...NEWEST_STIMS],
-                        setSize: setSize,
-                        block: "test_search",
-                        condition: cond,
-                        gapSide: gapSide
-                    }),
-                ]
+                const testConditions = generateTestConditions();
+
+                testConditions.forEach((testCond) => {
+                    jsPsych.addNodeToEndOfTimeline({
+                        timeline: [
+                            makeBlankTrial(CONFIG.blank_ms, { block: "test_search", test_block_number: blockNum }),
+                            makeCueTrial(id, false, { block: "test_search", condition: cond, test_block_number: blockNum }),
+                            makeFixationTrial({ block: "test_search", test_block_number: blockNum }),
+                            makeBlankTrial(CONFIG.blank_after_fixation_ms, { block: "test_search", test_block_number: blockNum }),
+                            {
+                                type: jsPsychHtmlKeyboardResponse,
+                                stimulus: function() {
+                                    window.currentTestCond = testCond;
+                                    const distractorIds = pickDistractors(id, [...DISTRACTORS_WITHOUT_TRAINING, ...NEW_STIMS], 7);
+                                    return searchArrayHTML({
+                                        targetId: id,
+                                        distractorIds,
+                                        gapSideTarget: testCond.gapSide,
+                                        setSize: CONFIG.set_size
+                                    });
+                                },
+                                choices: [CONFIG.left_key, CONFIG.right_key],
+                                trial_duration: CONFIG.search_timeout_ms,
+                                response_ends_trial: true,
+                                data: {
+                                    trial_kind: "search",
+                                    block: "test_search",
+                                    condition: cond,
+                                    target_id: id,
+                                    correct_gap: function() { return window.currentTestCond.gapSide; },
+                                    target_side: function() { return window.currentTestCond.targetSide; },
+                                    participant_id: window.PARTICIPANT_ID, seed: window.SEED, part: 2,
+                                    test_block_number: blockNum,
+                                    is_second_part: true,
+                                },
+                                on_finish: function(data) {
+                                    const cond = window.currentTestCond;
+                                    const correctKey = getCorrectKey(cond.gapSide);
+                                    if (data.response === null) {
+                                        data.correct = 0;
+                                        data.timeout = 1;
+                                    } else {
+                                        data.correct = (data.response.toLowerCase() === correctKey.toLowerCase()) ? 1 : 0;
+                                        data.timeout = 0;
+                                    }
+                                },
+                            },
+                        ]
+                    });
+                });
             });
-        });
+        }
 
         // Конец
         jsPsych.addNodeToEndOfTimeline({
-            timeline: [
-                {
-                    type: jsPsychHtmlKeyboardResponse,
-                    stimulus: `<div class="screen-wrap"><div class="instr">
-                        <h2>Спасибо!</h2>
-                        <p>Эксперимент завершён. Данные отправлены.</p>
-                        <div class="small-note">Нажмите любую клавишу, чтобы увидеть таблицу данных.</div>
-                    </div></div>`,
-                    choices: "ALL_KEYS"
-                },
-            ]
+            timeline: [{
+                type: jsPsychHtmlKeyboardResponse,
+                stimulus: `<div class="screen-wrap"><div class="instr">
+                    <h2>Спасибо!</h2>
+                    <p>Эксперимент завершён. Данные отправлены.</p>
+                    <div class="small-note">Нажмите любую клавишу, чтобы увидеть таблицу данных.</div>
+                </div></div>`,
+                choices: "ALL_KEYS"
+            }]
         });
     },
 };
@@ -752,10 +484,10 @@ function startExperiment() {
 
 function enterFullscreen() {
     const el = document.documentElement;
-    const requestFullscreen = el.requestFullscreen 
-        || el.webkitRequestFullscreen 
+    const requestFullscreen = el.requestFullscreen
+        || el.webkitRequestFullscreen
         || el.msRequestFullscreen;
-    
+
     if (requestFullscreen) {
         requestFullscreen.call(el).then(() => {
             startExperiment();
