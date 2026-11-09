@@ -42,7 +42,7 @@ const CONFIG = {
     new_stims_count: 8,
     newest_stims_count: 8,
 
-    test_blocks_count: 2,  // Количество тестовых блоков (для теста поставь 2)
+    test_blocks_count: 8,  // Количество тестовых блоков (для теста поставь 2)
 
     set_size: 8,
 
@@ -254,12 +254,13 @@ const idTrial = {
         console.log("NEWEST_STIMS:", NEWEST_STIMS);
 
         const PRELOAD_IMAGES = [
-            CONFIG.paths.ring_left, CONFIG.paths.ring_right,
-            ...STIM_TEMPLATES.map(objPath), ...WITHOUT_SEARCH.map(objPath),
-            ...NEWEST_STIMS.map(objPath),
-            ...DISTRACTORS_WITHOUT_TRAINING.map(objPath),
-            objPath(TRAINING_TARGET)
-        ];
+    CONFIG.paths.ring_left, CONFIG.paths.ring_right,
+    ...STIM_TEMPLATES.map(objPath), ...WITHOUT_SEARCH.map(objPath),
+    ...NEW_STIMS.map(objPath),      // ← ДОБАВЛЕНО
+    ...NEWEST_STIMS.map(objPath),
+    ...DISTRACTORS_WITHOUT_TRAINING.map(objPath),
+    objPath(TRAINING_TARGET)
+                                ];
 
         // === TIMELINE ===
         jsPsych.addNodeToEndOfTimeline({
